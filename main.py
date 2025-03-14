@@ -1,6 +1,6 @@
 from rapidfuzz import process
 
-# قاعدة البيانات البسيطة
+# In-memory database
 database = [
     { "id": 1, "name": "Laptop", "nameAr": "لابتوب", "price": 1200 },
     { "id": 2, "name": "Smartphone", "nameAr": "هاتف ذكي", "price": 800 },
@@ -9,47 +9,59 @@ database = [
     { "id": 5, "name": "Mouse", "nameAr": "فأرة", "price": 50 },
 ]
 
-# دالة لاكتشاف اللغة
+# Language detection
 def detect_language(text):
     arabic_chars = any('\u0600' <= c <= '\u06FF' for c in text)
     return 'ar' if arabic_chars else 'en'
 
-# دالة البحث عن المنتج
+# Search item function with suggestions
 def search_item(query):
     lang = detect_language(query)
 
     if lang == 'ar':
-        names_ar = [item["nameAr"] for item in database]
-        matches = process.extractOne(query, names_ar)
-        if matches and matches[1] > 60:
-            index = names_ar.index(matches[0])
-            return database[index]
+        names = [item["nameAr"] for item in database]
     else:
-        names_en = [item["name"] for item in database]
-        matches = process.extractOne(query, names_en)
-        if matches and matches[1] > 60:
-            index = names_en.index(matches[0])
-            return database[index]
+        names = [item["name"] for item in database]
 
-    return None
+    # Use rapidfuzz to find best match
+    match = process.extractOne(query, names)
 
-# البرنامج الرئيسي
+    if match:
+        matched_name, score, _ = match
+        index = names.index(matched_name)
+        return database[index], matched_name, score
+
+    return None, None, 0
+
+# Main program
 def main():
-    print("🔎 مرحبًا بك في AI Price Finder!")
+    print("🔎 Welcome to the AI Price Finder!")
+
     while True:
-        query = input("\n📝 اكتب اسم المنتج (بالعربي أو الإنجليزي)، أو اكتب 'exit' للخروج: ")
+        query = input("\n📝 Enter item description (Arabic or English), or type 'exit' to quit: ")
+
         if query.lower() == 'exit':
-            print("👋 مع السلامة!")
+            print("👋 Goodbye!")
             break
 
-        result = search_item(query)
+        # Check for short input
+        if len(query.strip()) < 3:
+            print("⚠️ Please enter a more descriptive query (at least 3 characters).")
+            continue
+
+        result, suggestion, score = search_item(query)
+
         if result:
-            print(f"\n✅ تم العثور على المنتج: {result['name']} / {result['nameAr']}")
-            print(f"💰 السعر: {result['price']} EGP")
+            if score > 85:
+                print(f"\n✅ Item Found: {result['name']} / {result['nameAr']}")
+                print(f"💰 Price: {result['price']} EGP")
+            elif score > 70:  # increased threshold to reduce false positives
+                print(f"\n❓ Did you mean: {suggestion}? (Confidence: {int(score)}%)")
+                print(f"💰 Price: {result['price']} EGP")
+            else:
+                print("\n❌ No matching item found. Please try again!")
         else:
-            print("\n❌ لم يتم العثور على المنتج، حاول مرة أخرى!")
+            print("\n❌ No matching item found at all. Please try again!")
 
 if __name__ == "__main__":
     main()
-
-
